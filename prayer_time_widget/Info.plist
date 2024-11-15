@@ -1,11 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict>
-	<key>NSExtension</key>
 	<dict>
-		<key>NSExtensionPointIdentifier</key>
-		<string>com.apple.widgetkit-extension</string>
+		<key>NSExtension</key>
+		<dict>
+			<key>NSExtensionPointIdentifier</key>
+			<string>com.apple.widgetkit-extension</string>
+		</dict>
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>We need your location to calculate accurate prayer times for your area</string>
+		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+		<string>We need your location to provide accurate prayer times throughout the day</string>
+		<key>NSLocationAlwaysUsageDescription</key>
+		<string>We need your location to provide accurate prayer times and notifications</string>
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>prayertime</string>
+				</array>
+				<key>CFBundleURLName</key>
+				<string>bd.com.islamicguidence.prayertime</string>
+			</dict>
+		</array>
 	</dict>
-</dict>
 </plist>

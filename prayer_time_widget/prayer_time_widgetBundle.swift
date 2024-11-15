@@ -11,6 +11,6 @@ import SwiftUI
 @main
 struct prayer_time_widgetBundle: WidgetBundle {
     var body: some Widget {
-        prayer_time_widget()
+        PrayerTimesWidget()
     }
 }

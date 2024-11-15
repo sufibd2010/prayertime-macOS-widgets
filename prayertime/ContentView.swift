@@ -6,16 +6,16 @@
 //
 
 import SwiftUI
+import CoreLocation
 
 struct ContentView: View {
+    @StateObject private var settings = PrayerSettings()
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        NavigationView {
+            SettingsView(settings: settings)
+                .navigationTitle("Prayer Times Settings")
         }
-        .padding()
     }
 }
 
