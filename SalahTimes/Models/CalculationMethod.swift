@@ -17,19 +17,32 @@ enum CalculationMethod: String, CaseIterable {
     
     var params: CalculationParameters {
         switch self {
-        case .muslimWorldLeague: return CalculationMethod.muslimWorldLeague.params
-        case .northAmerica: return CalculationMethod.northAmerica.params
-        case .egyptian: return CalculationMethod.egyptian.params
-        case .karachi: return CalculationMethod.karachi.params
-        case .dubai: return CalculationMethod.dubai.params
-        case .kuwait: return CalculationMethod.kuwait.params
-        case .qatar: return CalculationMethod.qatar.params
-        case .singapore: return CalculationMethod.singapore.params
-        case .tehran: return CalculationMethod.tehran.params
-        case .turkey: return CalculationMethod.turkey.params
-        case .other: return CalculationMethod.other.params
-        case .moonsightingCommittee: return CalculationMethod.moonsightingCommittee.params
-        case .ummAlQura: return CalculationMethod.ummAlQura.params
+        case .muslimWorldLeague:
+            return Adhan.CalculationMethod.muslimWorldLeague.params
+        case .northAmerica:
+            return Adhan.CalculationMethod.northAmerica.params
+        case .egyptian:
+            return Adhan.CalculationMethod.egyptian.params
+        case .karachi:
+            return Adhan.CalculationMethod.karachi.params
+        case .dubai:
+            return Adhan.CalculationMethod.dubai.params
+        case .kuwait:
+            return Adhan.CalculationMethod.kuwait.params
+        case .qatar:
+            return Adhan.CalculationMethod.qatar.params
+        case .singapore:
+            return Adhan.CalculationMethod.singapore.params
+        case .tehran:
+            return Adhan.CalculationMethod.tehran.params
+        case .turkey:
+            return Adhan.CalculationMethod.turkey.params
+        case .other:
+            return Adhan.CalculationMethod.other.params
+        case .moonsightingCommittee:
+            return Adhan.CalculationMethod.moonsightingCommittee.params
+        case .ummAlQura:
+            return Adhan.CalculationMethod.ummAlQura.params
         }
     }
 } 

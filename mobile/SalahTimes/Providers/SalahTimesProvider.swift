@@ -4,7 +4,7 @@ import CoreLocation
 import Adhan
 
 struct SalahTimesProvider: TimelineProvider {
-    let defaults = UserDefaults(suiteName: "group.bd.com.islamicguidence.prayertime")
+    let defaults = UserDefaults(suiteName: "group.com.yourapp.prayertime")
     
     func placeholder(in context: Context) -> SalahTimesEntry {
         let currentDate = Date()
@@ -17,12 +17,12 @@ struct SalahTimesProvider: TimelineProvider {
         ]
         return SalahTimesEntry(date: currentDate, prayerTimes: samplePrayerTimes)
     }
-
+    
     func getSnapshot(in context: Context, completion: @escaping (SalahTimesEntry) -> ()) {
         let entry = placeholder(in: context)
         completion(entry)
     }
-
+    
     func getTimeline(in context: Context, completion: @escaping (Timeline<SalahTimesEntry>) -> ()) {
         let currentDate = Date()
         let prayerTimes = calculatePrayerTimes(for: currentDate)

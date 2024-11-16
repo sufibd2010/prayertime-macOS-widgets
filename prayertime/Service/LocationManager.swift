@@ -12,7 +12,12 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     override init() {
         super.init()
         locationManager.delegate = self
-        locationManager.desiredAccuracy = kCLLocationAccuracyKilometer // Lower accuracy is fine for prayer times
+        locationManager.desiredAccuracy = kCLLocationAccuracyKilometer
+        
+        if ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil {
+            print("Running in sandbox environment")
+        }
+        
         authorizationStatus = locationManager.authorizationStatus
     }
     
@@ -25,10 +30,8 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         case .authorizedWhenInUse, .authorizedAlways:
             locationManager.startUpdatingLocation()
         case .restricted, .denied:
-            let error = NSError(domain: "LocationManager",
-                              code: 1,
-                              userInfo: [NSLocalizedDescriptionKey: "Location access denied"])
-            onLocationError?(error)
+            let defaultLocation = CLLocation(latitude: 23.777176, longitude: 90.399452)
+            onLocationUpdate?(defaultLocation)
         @unknown default:
             break
         }
