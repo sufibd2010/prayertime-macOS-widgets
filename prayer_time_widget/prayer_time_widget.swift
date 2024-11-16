@@ -5,11 +5,19 @@ import CoreLocation
 import Adhan
 import UserNotifications
 
-struct PrayerTime: Identifiable {
+struct PrayerTime: Identifiable, Hashable {
     let id = UUID()
     let name: String
     let time: Date
     var isNextPrayer: Bool = false
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+    
+    static func == (lhs: PrayerTime, rhs: PrayerTime) -> Bool {
+        lhs.id == rhs.id
+    }
 }
 
 class PrayerSettings: ObservableObject {
@@ -103,34 +111,44 @@ struct PrayerTimesWidgetView: View {
     
     // MARK: - Helper Functions
     private func setupLocationServices() {
-        locationManager.onLocationUpdate = { location in
+        LocationManager.shared.onLocationUpdate = { location in
             settings.coordinates = location.coordinate
             
             // Reverse geocode to get city name
             let geocoder = CLGeocoder()
             geocoder.reverseGeocodeLocation(location) { placemarks, error in
+                if let error = error {
+                    print("Reverse geocoding error: \(error.localizedDescription)")
+                    return
+                }
+                
                 if let city = placemarks?.first?.locality {
-                    settings.city = city
+                    DispatchQueue.main.async {
+                        settings.city = city
+                    }
                 }
             }
             
             updatePrayerTimes()
         }
         
-        locationManager.onLocationError = { error in
+        LocationManager.shared.onLocationError = { error in
             print("Location error: \(error.localizedDescription)")
-            // Fall back to default location or saved location
-            if let savedCoordinates = UserDefaults.standard.object(forKey: "LastKnownLocation") as? [String: Double] {
-                settings.coordinates = CLLocationCoordinate2D(
-                    latitude: savedCoordinates["latitude"] ?? 0,
-                    longitude: savedCoordinates["longitude"] ?? 0
-                )
-                updatePrayerTimes()
+            // Fall back to last known location
+            if let savedLocation = UserDefaults.standard.dictionary(forKey: "LastKnownLocation") {
+                if let latitude = savedLocation["latitude"] as? Double,
+                   let longitude = savedLocation["longitude"] as? Double {
+                    settings.coordinates = CLLocationCoordinate2D(
+                        latitude: latitude,
+                        longitude: longitude
+                    )
+                    updatePrayerTimes()
+                }
             }
         }
         
         if settings.useLocation {
-            locationManager.requestLocation()
+            LocationManager.shared.requestLocation()
         }
     }
     
@@ -298,21 +316,53 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     override init() {
         super.init()
         locationManager.delegate = self
+        locationManager.desiredAccuracy = kCLLocationAccuracyKilometer
+        locationManager.distanceFilter = 1000 // Update only when moved 1km
     }
     
     func requestLocation() {
-        locationManager.requestWhenInUseAuthorization()
-        locationManager.startUpdatingLocation()
+        let status = locationManager.authorizationStatus
+        switch status {
+        case .notDetermined:
+            locationManager.requestWhenInUseAuthorization()
+        case .authorizedWhenInUse, .authorizedAlways:
+            locationManager.startUpdatingLocation()
+        default:
+            onLocationError?(NSError(domain: "LocationManager", code: 1, 
+                userInfo: [NSLocalizedDescriptionKey: "Location permission denied"]))
+        }
+    }
+    
+    func stopUpdatingLocation() {
+        locationManager.stopUpdatingLocation()
     }
     
     // MARK: - CLLocationManagerDelegate
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.first else { return }
+        guard let location = locations.last else { return }
+        
+        // Filter out invalid or inaccurate locations
+        if location.horizontalAccuracy < 0 || location.horizontalAccuracy > 10000 {
+            return
+        }
+        
         onLocationUpdate?(location)
+        stopUpdatingLocation() // Stop after getting a good location
     }
     
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         onLocationError?(error)
+    }
+    
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        switch manager.authorizationStatus {
+        case .authorizedWhenInUse, .authorizedAlways:
+            locationManager.startUpdatingLocation()
+        case .denied, .restricted:
+            onLocationError?(NSError(domain: "LocationManager", code: 2, userInfo: [NSLocalizedDescriptionKey: "Location access denied"]))
+        default:
+            break
+        }
     }
 }
 
@@ -352,13 +402,14 @@ struct PrayerTimesWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: PrayerTimesProvider()) { entry in
             PrayerTimesWidgetView(prayerTimes: entry.prayerTimes)
-                .containerBackground(.background, for: .widget)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .configurationDisplayName("Prayer Times")
         .description("Display daily prayer times")
         .supportedFamilies([.systemSmall, .systemMedium])
-        .contentMarginsDisabled()
+        .onBackgroundURLSessionEvents { identifier, completion in
+            print("Widget background session event: \(identifier)")
+            completion()
+        }
     }
 }
 
@@ -378,20 +429,73 @@ struct PrayerTimesProvider: TimelineProvider {
     }
     
     func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> Void) {
-        var entries: [PrayerTimesEntry] = []
+        print("Getting timeline")
         let currentDate = Date()
-        let calendar = Calendar.current
+        let prayerTimes = calculatePrayerTimes(for: currentDate)
+        print("Calculated prayer times: \(prayerTimes.count)")
         
-        // Create entries for next 24 hours
-        for hourOffset in 0..<24 {
-            let entryDate = calendar.date(byAdding: .hour, value: hourOffset, to: currentDate)!
-            let times = PrayerTimesWidgetView.calculatePrayerTimes(for: entryDate)
-            let entry = PrayerTimesEntry(date: entryDate, prayerTimes: times)
-            entries.append(entry)
+        let entry = PrayerTimesEntry(
+            date: currentDate,
+            prayerTimes: prayerTimes
+        )
+        
+        // Update timeline every hour
+        let nextUpdateDate = Calendar.current.date(byAdding: .hour, value: 1, to: currentDate)!
+        let timeline = Timeline(entries: [entry], policy: .after(nextUpdateDate))
+        completion(timeline)
+    }
+    
+    private func calculatePrayerTimes(for date: Date) -> [PrayerTime] {
+        let defaults = UserDefaults(suiteName: "group.bd.com.islamicguidence.prayertime")
+        print("Using UserDefaults suite: \(defaults?.description ?? "standard")")
+        
+        // Get coordinates (using Dhaka as default)
+        var coordinates = CLLocationCoordinate2D(latitude: 23.777176, longitude: 90.399452)
+        if let savedLocation = defaults?.dictionary(forKey: "LastKnownLocation") {
+            if let latitude = savedLocation["latitude"] as? Double,
+               let longitude = savedLocation["longitude"] as? Double {
+                coordinates = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+            }
         }
         
-        let timeline = Timeline(entries: entries, policy: .atEnd)
-        completion(timeline)
+        let cal = Calendar(identifier: .gregorian)
+        let dateComponents = cal.dateComponents([.year, .month, .day], from: date)
+        
+        // Get calculation method
+        let methodKey = defaults?.string(forKey: "calculationMethod") ?? "muslimWorldLeague"
+        let params = CalculationMethod(rawValue: methodKey)?.params ?? 
+                    CalculationMethod.muslimWorldLeague.params
+        
+        let adhanCoordinates = Coordinates(latitude: coordinates.latitude, 
+                                         longitude: coordinates.longitude)
+        
+        if let prayers = PrayerTimes(coordinates: adhanCoordinates, 
+                                   date: dateComponents, 
+                                   calculationParameters: params) {
+            var times = [
+                PrayerTime(name: "Fajr", time: prayers.fajr),
+                PrayerTime(name: "Dhuhr", time: prayers.dhuhr),
+                PrayerTime(name: "Asr", time: prayers.asr),
+                PrayerTime(name: "Maghrib", time: prayers.maghrib),
+                PrayerTime(name: "Isha", time: prayers.isha)
+            ]
+            
+            if let nextPrayer = findNextPrayer(times) {
+                times[nextPrayer].isNextPrayer = true
+            }
+            
+            return times
+        }
+        return []
+    }
+        private func findNextPrayer(_ prayers: [PrayerTime]) -> Int? {
+        let now = Date()
+        for (index, prayer) in prayers.enumerated() {
+            if prayer.time > now {
+                return index
+            }
+        }
+        return nil
     }
 }
 
@@ -410,3 +514,5 @@ struct PrayerTimesEntry: TimelineEntry {
         return PrayerTimesEntry(date: Date(), prayerTimes: times)
     }
 }
+
+

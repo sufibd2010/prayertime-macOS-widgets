@@ -14,3 +14,4 @@ struct prayer_time_widgetBundle: WidgetBundle {
         PrayerTimesWidget()
     }
 }
+
