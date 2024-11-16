@@ -27,14 +27,21 @@ struct PrayerTime: Identifiable, Hashable {
 }
 
 class PrayerSettings: ObservableObject {
-    @AppStorage("calculationMethod") var calculationMethod: CalculationMethod = .muslimWorldLeague
-    @AppStorage("city") var city: String = ""
-    @AppStorage("useLocation") var useLocation: Bool = true
+    private let defaults = UserDefaults(suiteName: "group.bd.com.islamicguidence.prayertime")
+    
+    @AppStorage("calculationMethod", store: UserDefaults(suiteName: "group.bd.com.islamicguidence.prayertime"))
+    var calculationMethod: CalculationMethod = .muslimWorldLeague
+    
+    @AppStorage("city", store: UserDefaults(suiteName: "group.bd.com.islamicguidence.prayertime"))
+    var city: String = ""
+    
+    @AppStorage("useLocation", store: UserDefaults(suiteName: "group.bd.com.islamicguidence.prayertime"))
+    var useLocation: Bool = true
     
     var coordinates: CLLocationCoordinate2D? {
         didSet {
             if let coords = coordinates {
-                UserDefaults.standard.set([
+                defaults?.set([
                     "latitude": coords.latitude,
                     "longitude": coords.longitude
                 ], forKey: "LastKnownLocation")
@@ -80,6 +87,10 @@ struct SalahTimesWidget: Widget {
         .configurationDisplayName("Salah Times")
         .description("Display daily prayer times")
         .supportedFamilies([.systemSmall, .systemMedium])
+        .onBackgroundURLSessionEvents { identifier, completion in
+            print("Widget background session event: \(identifier)")
+            completion()
+        }
     }
 }
 
@@ -87,22 +98,23 @@ struct SalahTimesWidgetView: View {
     let prayerTimes: [PrayerTime]
     
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 4) {
             headerView
             prayerTimesListView
         }
         .padding(8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .onAppear {
+            print("Widget view appeared with \(prayerTimes.count) prayer times")
+        }
     }
     
     private var headerView: some View {
         HStack {
-            Text("Prayer Times")
-                .font(.caption)
-                .fontWeight(.medium)
             Spacer()
-            Text(Date(), style: .date)
+            Image(systemName: "gearshape.fill")
                 .font(.caption2)
+                .foregroundColor(.gray)
         }
     }
     
@@ -153,7 +165,7 @@ struct SalahTimesProvider: TimelineProvider {
         // Create sample prayer times for placeholder
         let currentDate = Date()
         let samplePrayerTimes = [
-            PrayerTime(name: "Fajr", time: currentDate.addingTimeInterval(0)),
+            PrayerTime(name: "Fajr", time: currentDate),
             PrayerTime(name: "Dhuhr", time: currentDate.addingTimeInterval(21600)),
             PrayerTime(name: "Asr", time: currentDate.addingTimeInterval(32400)),
             PrayerTime(name: "Maghrib", time: currentDate.addingTimeInterval(43200)),
@@ -163,33 +175,34 @@ struct SalahTimesProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (SalahTimesEntry) -> ()) {
-        print("Getting snapshot...")
-        let prayerTimes = calculatePrayerTimes(for: Date())
-        print("Prayer times calculated: \(prayerTimes.count) times")
-        let entry = SalahTimesEntry(date: Date(), prayerTimes: prayerTimes)
+        // Use placeholder data for preview
+        let entry = placeholder(in: context)
         completion(entry)
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<SalahTimesEntry>) -> ()) {
-        var entries: [SalahTimesEntry] = []
+        print("Getting timeline")
         let currentDate = Date()
-        let calendar = Calendar(identifier: .gregorian)
+        let prayerTimes = calculatePrayerTimes(for: currentDate)
+        print("Calculated prayer times: \(prayerTimes.count)")
         
-        // Create timeline entries for the next 24 hours
-        for hourOffset in 0 ..< 24 {
-            let entryDate = calendar.date(byAdding: .hour, value: hourOffset, to: currentDate)!
-            let entry = SalahTimesEntry(date: entryDate, prayerTimes: calculatePrayerTimes(for: entryDate))
-            entries.append(entry)
-        }
-
-        let timeline = Timeline(entries: entries, policy: .atEnd)
+        let entry = SalahTimesEntry(
+            date: currentDate,
+            prayerTimes: prayerTimes
+        )
+        
+        let nextUpdateDate = Calendar.current.date(byAdding: .hour, value: 1, to: currentDate)!
+        let timeline = Timeline(entries: [entry], policy: .after(nextUpdateDate))
         completion(timeline)
     }
     
     private func calculatePrayerTimes(for date: Date) -> [PrayerTime] {
+        let defaults = UserDefaults(suiteName: "group.bd.com.islamicguidence.prayertime")
+        print("Using UserDefaults suite: \(defaults?.description ?? "standard")")
+        
         // Try to get saved location from UserDefaults
         var coordinates = CLLocationCoordinate2D(latitude: 23.777176, longitude: 90.399452) // Default coordinates
-        if let savedLocation = UserDefaults.standard.dictionary(forKey: "LastKnownLocation") {
+        if let savedLocation = defaults?.dictionary(forKey: "LastKnownLocation") {
             if let latitude = savedLocation["latitude"] as? Double,
                let longitude = savedLocation["longitude"] as? Double {
                 coordinates = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
@@ -203,7 +216,7 @@ struct SalahTimesProvider: TimelineProvider {
         let day = components.day ?? 0
         
         // Get calculation method from settings
-        let calculationMethod = UserDefaults.standard.string(forKey: "calculationMethod") ?? "muslimWorldLeague"
+        let calculationMethod = defaults?.string(forKey: "calculationMethod") ?? "muslimWorldLeague"
         let params = CalculationMethod(rawValue: calculationMethod)?.params ?? CalculationMethod.muslimWorldLeague.params
         
         let adhanCoordinates = Coordinates(latitude: coordinates.latitude, longitude: coordinates.longitude)
