@@ -11,6 +11,6 @@ import SwiftUI
 @main
 struct SalahTimesBundle: WidgetBundle {
     var body: some Widget {
-        SalahTimes()
+        SalahTimesWidget()
     }
 }
