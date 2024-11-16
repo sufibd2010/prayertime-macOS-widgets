@@ -1,8 +1,8 @@
 //
 //  AppIntent.swift
-//  prayer_time_widget
+//  SalahTimes
 //
-//  Created by Md. Abu Sufian Sufi on 11/15/24.
+//  Created by Md. Abu Sufian Sufi on 11/16/24.
 //
 
 import WidgetKit
