@@ -43,43 +43,48 @@ struct PrayerTimesWidgetView: View {
     }
     
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) {
             headerView
             prayerTimesListView
             settingsButton
         }
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
     
     private var headerView: some View {
         HStack {
             Text(settings.city.isEmpty ? "Prayer Times" : settings.city)
-                .font(.headline)
+                .font(.caption)
+                .fontWeight(.medium)
             Spacer()
             Text(Date(), style: .date)
-                .font(.subheadline)
+                .font(.caption2)
         }
     }
     
     private var prayerTimesListView: some View {
-        ForEach(prayerTimes) { prayer in
-            HStack {
-                Image(systemName: getPrayerIcon(for: prayer.name))
-                    .foregroundColor(.accentColor)
-                Text(prayer.name)
-                    .font(.system(.body, design: .rounded))
-                Spacer()
-                Text(formatTime(prayer.time))
-                    .font(.system(.body, design: .monospaced))
-                if prayer.isNextPrayer {
-                    Image(systemName: "bell.fill")
-                        .foregroundColor(.yellow)
+        VStack(spacing: 4) {
+            ForEach(prayerTimes) { prayer in
+                HStack {
+                    Image(systemName: getPrayerIcon(for: prayer.name))
+                        .foregroundColor(.accentColor)
+                        .frame(width: 20)
+                    Text(prayer.name)
+                        .font(.system(.caption, design: .rounded))
+                        .lineLimit(1)
+                    Spacer()
+                    Text(formatTime(prayer.time))
+                        .font(.system(.caption, design: .monospaced))
+                    if prayer.isNextPrayer {
+                        Image(systemName: "bell.fill")
+                            .foregroundColor(.yellow)
+                            .font(.system(size: 10))
+                    }
                 }
+                .padding(.horizontal, 4)
+                .padding(.vertical, 2)
             }
-            .padding(.vertical, 4)
-            .accessibilityLabel("\(prayer.name) prayer at \(formatTime(prayer.time))")
-            .accessibilityHint(prayer.isNextPrayer ? "Next prayer time" : "")
         }
     }
     
@@ -90,7 +95,10 @@ struct PrayerTimesWidgetView: View {
             }
         }) {
             Label("Settings", systemImage: "gear")
+                .font(.caption2)
         }
+        .buttonStyle(.plain)
+        .padding(.top, 4)
     }
     
     // MARK: - Helper Functions
@@ -345,10 +353,12 @@ struct PrayerTimesWidget: Widget {
         StaticConfiguration(kind: kind, provider: PrayerTimesProvider()) { entry in
             PrayerTimesWidgetView(prayerTimes: entry.prayerTimes)
                 .containerBackground(.background, for: .widget)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .configurationDisplayName("Prayer Times")
         .description("Display daily prayer times")
         .supportedFamilies([.systemSmall, .systemMedium])
+        .contentMarginsDisabled()
     }
 }
 
