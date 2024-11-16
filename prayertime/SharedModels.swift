@@ -1,6 +1,7 @@
 import SwiftUI
 import CoreLocation
 import Adhan
+import WidgetKit
 
 enum CalculationMethod: String, CaseIterable {
     case muslimWorldLeague = "Muslim World League"
@@ -61,8 +62,20 @@ struct SettingsView: View {
         Form {
             Section("Location") {
                 Toggle("Use Current Location", isOn: $settings.useLocation)
+                    .onChange(of: settings.useLocation) { _ in
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(100))
+                            reloadWidget()
+                        }
+                    }
                 if !settings.useLocation {
                     TextField("City", text: $settings.city)
+                        .onChange(of: settings.city) { _ in
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .milliseconds(100))
+                                reloadWidget()
+                            }
+                        }
                 }
             }
             
@@ -72,6 +85,12 @@ struct SettingsView: View {
                         Text(method.rawValue).tag(method)
                     }
                 }
+                .onChange(of: settings.calculationMethod) { _ in
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(100))
+                        reloadWidget()
+                    }
+                }
             }
         }
         .padding()
@@ -79,8 +98,13 @@ struct SettingsView: View {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Done") {
                     dismiss()
+                    reloadWidget()
                 }
             }
         }
+    }
+    
+    private func reloadWidget() {
+        WidgetCenter.shared.reloadAllTimelines()
     }
 } 

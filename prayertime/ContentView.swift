@@ -12,10 +12,9 @@ struct ContentView: View {
     @StateObject private var settings = PrayerSettings()
     
     var body: some View {
-        NavigationView {
-            SettingsView(settings: settings)
-                .navigationTitle("Prayer Times Settings")
-        }
+        SettingsView(settings: settings)
+            .navigationTitle("Prayer Times Settings")
+            .frame(minWidth: 300, maxWidth: .infinity, minHeight: 400)
     }
 }
 
